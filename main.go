@@ -41,10 +41,14 @@ func main() {
 	cache := cache.New(cache.NoExpiration, cache.NoExpiration)
 
 	c := cron.New()
-	c.AddFunc(*interval, func() {
+	_, err := c.AddFunc(*interval, func() {
 		log.Info().Msg("Removing result from cache")
 		cache.Delete("result")
 	})
+	if err != nil {
+		log.Fatal().Err(err).Msg("error setting cron")
+		os.Exit(1)
+	}
 	c.Start()
 
 	log.Info().Msgf("starting speedtest-exporter %s", version)
