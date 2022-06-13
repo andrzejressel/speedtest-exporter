@@ -2,6 +2,7 @@ package collector
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -148,11 +149,17 @@ func (c *speedtestCollector) cachedOrCollect() (SpeedtestResult, error) {
 
 func (c *speedtestCollector) collect() (SpeedtestResult, error) {
 	log.Debug().Msg("running speedtest")
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
 	var out bytes.Buffer
-	cmd := exec.Command("speedtest", "--accept-license", "--accept-gdpr", "--format", "json", "--unit", "B/s")
+	cmd := exec.CommandContext(ctx, "speedtest", "--accept-license", "--accept-gdpr", "--format", "json", "--unit", "B/s")
 	cmd.Stdout = &out
 	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	err := cmd.Run()
+	if ctx.Err() == context.DeadlineExceeded {
+		return SpeedtestResult{}, fmt.Errorf("speedtest timeout")
+	}
+	if err != nil {
 		return SpeedtestResult{}, fmt.Errorf("speedtest failed: %w", err)
 	}
 	log.Debug().Msgf("speedtest result: %s", out.String())
